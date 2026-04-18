@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>지뢰찾기</title>
+
+<style>
+body {
+    background: #008080;
+    font-family: Gulim, "굴림", Dotum, "돋움", monospace;
+    display: flex;
+    justify-content: center;
+    margin-top: 50px;
+}
+
+.window {
+    background: #C0C0C0;
+    border: 2px solid #fff;
+    box-shadow: inset -2px -2px #000, inset 2px 2px #808080;
+    padding: 5px;
+}
+
+.title-bar {
+    background: linear-gradient(to right, #000080, #1084d0);
+    color: white;
+    padding: 3px 5px;
+    font-weight: bold;
+    font-family: Gulim, "굴림", Dotum, "돋움", monospace;
+}
+
+.panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+    border: inset 2px #fff;
+    margin: 5px 0;
+}
+
+.counter {
+    background: black;
+    color: red;
+    font-family: "Courier New", monospace;
+    padding: 3px 8px;
+    font-size: 18px;
+    width: 50px;
+    text-align: center;
+}
+
+.face {
+    width: 30px;
+    height: 30px;
+    background: #C0C0C0;
+    text-align: center;
+    line-height: 30px;
+    border: outset 2px #fff;
+    cursor: pointer;
+    font-size: 18px;
+    user-select: none;
+}
+
+.face:active {
+    border: inset 2px #fff;
+    transform: translate(1px, 1px);
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(16, 25px);
+    gap: 2px;
+    background: #808080;
+    padding: 3px;
+    border: inset 2px #fff;
+}
+
+.cell {
+    width: 25px;
+    height: 25px;
+    background: #C0C0C0;
+    border: outset 2px #fff;
+    text-align: center;
+    line-height: 25px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.cell.open {
+    background: #BDBDBD;
+    border: inset 2px #fff;
+}
+
+.cell.mine::after { content: "💣"; }
+.cell.flag::after { content: "🚩"; }
+.cell.wrong::after { content: "❌"; }
+.cell.question::after { content: "?"; color: blue; }
+</style>
+</head>
+
+<body>
+
+<div class="window">
+    <div class="title-bar">💣 지뢰찾기</div>
+
+    <div class="panel">
+        <div class="counter" id="mineCount">010</div>
+        <div class="face" id="face" onclick="resetGame()">🙂</div>
+        <div class="counter" id="timer">000</div>
+    </div>
+
+    <div class="board" id="board"></div>
+</div>
+
+<script>
+const SIZE = 16;
+const MINES = 40;
+
+let board = [];
+let timer = 0;
+let timerInterval;
+let started = false;
+let gameOver = false;
+let flags = 0;
+
+function init() {
+    board = [];
+    const boardEl = document.getElementById("board");
+    boardEl.innerHTML = "";
+
+    document.getElementById("face").innerText = "🙂";
+    document.getElementById("timer").innerText = "000";
+    document.getElementById("mineCount").innerText = "010";
+
+    timer = 0;
+    started = false;
+    gameOver = false;
+    flags = 0;
+
+    clearInterval(timerInterval);
+
+    for (let y = 0; y < SIZE; y++) {
+        let row = [];
+        for (let x = 0; x < SIZE; x++) {
+            let cell = {
+                mine: false,
+                open: false,
+                state: 0, // 0 none, 1 flag, 2 question
+                count: 0,
+                el: document.createElement("div")
+            };
+
+            cell.el.className = "cell";
+
+            cell.el.onclick = () => openCell(x, y);
+            cell.el.oncontextmenu = (e) => {
+                e.preventDefault();
+                toggleMark(x, y);
+            };
+
+            boardEl.appendChild(cell.el);
+            row.push(cell);
+        }
+        board.push(row);
+    }
+
+    let placed = 0;
+    while (placed < MINES) {
+        let x = Math.floor(Math.random() * SIZE);
+        let y = Math.floor(Math.random() * SIZE);
+        if (!board[y][x].mine) {
+            board[y][x].mine = true;
+            placed++;
+        }
+    }
+
+    for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+            if (board[y][x].mine) continue;
+
+            let count = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    let ny = y + dy;
+                    let nx = x + dx;
+                    if (board[ny] && board[ny][nx] && board[ny][nx].mine) {
+                        count++;
+                    }
+                }
+            }
+            board[y][x].count = count;
+        }
+    }
+}
+
+function startTimer() {
+    if (started) return;
+    started = true;
+
+    timerInterval = setInterval(() => {
+        timer++;
+        document.getElementById("timer").innerText =
+            String(timer).padStart(3, "0");
+    }, 1000);
+}
+
+function updateMineCount() {
+    let left = MINES - flags;
+    document.getElementById("mineCount").innerText =
+        String(left).padStart(3, "0");
+}
+
+function openCell(x, y) {
+    if (gameOver) return;
+
+    startTimer();
+
+    let cell = board[y][x];
+    if (cell.open || cell.state === 1) return;
+
+    // 🔥 ? 제거하고 열기
+    if (cell.state === 2) {
+        cell.state = 0;
+        cell.el.classList.remove("question");
+    }
+
+    cell.open = true;
+    cell.el.classList.add("open");
+
+    if (cell.mine) {
+        gameOver = true;
+        document.getElementById("face").innerText = "☹️";
+
+        for (let row of board) {
+            for (let c of row) {
+                if (c.mine) c.el.classList.add("mine");
+                if (c.state === 1 && !c.mine) c.el.classList.add("wrong");
+            }
+        }
+
+        clearInterval(timerInterval);
+        return;
+    }
+
+    if (cell.count > 0) {
+        cell.el.innerText = cell.count;
+    } else {
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                let ny = y + dy;
+                let nx = x + dx;
+                if (board[ny] && board[ny][nx]) {
+                    openCell(nx, ny);
+                }
+            }
+        }
+    }
+
+    checkWin();
+}
+
+function toggleMark(x, y) {
+    if (gameOver) return;
+
+    let cell = board[y][x];
+    if (cell.open) return;
+
+    if (cell.state === 0) {
+        cell.state = 1;
+        cell.el.classList.add("flag");
+        flags++;
+    } else if (cell.state === 1) {
+        cell.state = 2;
+        cell.el.classList.remove("flag");
+        cell.el.classList.add("question");
+        flags--;
+    } else {
+        cell.state = 0;
+        cell.el.classList.remove("question");
+    }
+
+    updateMineCount();
+}
+
+function checkWin() {
+    let opened = 0;
+
+    for (let row of board) {
+        for (let c of row) {
+            if (c.open) opened++;
+        }
+    }
+
+    if (opened === SIZE * SIZE - MINES) {
+        gameOver = true;
+        clearInterval(timerInterval);
+        document.getElementById("face").innerText = "😎";
+    }
+}
+
+function resetGame() {
+    init();
+}
+
+init();
+</script>
+
+</body>
+</html>
