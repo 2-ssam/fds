@@ -27,14 +27,19 @@ function go0() {
 }
 </script>
 
-<!-- 🔽 여기 추가 -->
+<!-- ✅ 다음 검색창 -->
 <footer style="margin-top:50px; text-align:center;">
-    <iframe 
-        src="https://search.daum.net/search?q=" 
-        width="400" 
-        height="60"
-        style="border:none;">
-    </iframe>
+    <form action="https://search.daum.net/search" method="get" target="_blank">
+        <input 
+            type="text" 
+            name="q" 
+            placeholder="다음에서 검색"
+            style="width:250px; padding:8px;">
+        
+        <button type="submit" style="padding:8px;">
+            검색
+        </button>
+    </form>
 </footer>
 
 </body>
